@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { History } from "lucide-react";
+import { History, Brain } from "lucide-react";
 
 import { AiStatusPill } from "@/components/lili/AppShell";
 import { Composer } from "@/components/lili/Composer";
@@ -57,6 +57,11 @@ function Home() {
         </div>
         <div className="flex items-center gap-2">
           <AiStatusPill />
+          <Button variant="glass" size="icon" className="rounded-full" asChild>
+            <Link to="/memory" aria-label="Lili's Memory">
+              <Brain className="w-4 h-4" />
+            </Link>
+          </Button>
           <Button variant="glass" size="icon" className="rounded-full" asChild>
             <Link to="/history" aria-label="Chat history">
               <History />
