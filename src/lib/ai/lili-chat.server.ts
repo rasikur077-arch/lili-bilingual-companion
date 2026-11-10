@@ -29,6 +29,7 @@ const bodySchema = z.object({
     .min(1)
     .max(500),
   settings: aiSettingsSchema.partial().optional(),
+  memories: z.array(z.string().max(500)).max(100).optional(),
 });
 
 function textError(message: string, status: number) {
@@ -40,7 +41,7 @@ export function friendlyAiError(error: unknown): string {
   const status = APICallError.isInstance(error) ? error.statusCode : undefined;
   switch (status) {
     case 402:
-      return "AI credits have run out. The workspace owner can add credits in Settings → Plans & credits. (AI ক্রেডিট শেষ হয়ে গেছে।)";
+      return "AI credits have run out. The workspace owner can add credits in Settings → plans & credits. (AI ক্রেডিট শেষ হয়ে গেছে।)";
     case 403:
       return "Lili's AI access is currently blocked for this workspace. Please ask the workspace admin to check AI settings. (AI ব্যবহারের অনুমতি নেই।)";
     case 429:
@@ -71,6 +72,7 @@ export async function handleLiliChat(request: Request): Promise<Response> {
   }
 
   const settings = aiSettingsSchema.parse(parsed.settings ?? {});
+  const memories = parsed.memories ?? [];
   const uiMessages = parsed.messages.slice(-MAX_HISTORY) as unknown as UIMessage[];
 
   let modelMessages;
@@ -92,7 +94,7 @@ export async function handleLiliChat(request: Request): Promise<Response> {
 
   const result = streamText({
     model: provider.responses(MODEL),
-    instructions: buildLiliInstructions(settings),
+    instructions: buildLiliInstructions(settings, memories),
     messages: modelMessages,
     abortSignal: request.signal,
     maxRetries: 0,
@@ -118,4 +120,4 @@ export async function handleLiliChat(request: Request): Promise<Response> {
     }),
     runIdFetch,
   );
-}
+        }
