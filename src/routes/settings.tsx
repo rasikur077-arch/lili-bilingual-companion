@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { createFileRoute, useHydrated } from "@tanstack/react-router";
-import { Languages, MessageSquareText, Mic, PlugZap, Shield, Sparkle, User } from "lucide-react";
+import { createFileRoute, Link, useHydrated } from "@tanstack/react-router";
+import { Brain, Languages, MessageSquareText, Mic, PlugZap, Shield, Sparkle, User } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/lili/AppShell";
@@ -49,7 +49,7 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const hydrated = useHydrated();
-  const s = useSettings();
+  const s =useSettings();
   const threads = useThreads();
 
   return (
@@ -79,6 +79,24 @@ function SettingsPage() {
                   className="h-11 w-full rounded-xl border border-input bg-muted px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                 />
               </label>
+            </Section>
+
+            {/* Lili's Memory Section Added Here */}
+            <Section icon={Brain} title="Memory">
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Manage what Lili remembers about you across conversations.
+                </p>
+                <Button asChild variant="outline" className="w-full rounded-xl justify-between border-primary/30 hover:bg-primary/10">
+                  <Link to="/memory">
+                    <span className="flex items-center gap-2 font-medium">
+                      <Brain className="size-4 text-primary" />
+                      View & Edit Lili's Memory
+                    </span>
+                    <span className="text-muted-foreground">→</span>
+                  </Link>
+                </Button>
+              </div>
             </Section>
 
             <Section icon={Sparkle} title="Personality">
@@ -293,4 +311,4 @@ function ToggleRow({
       <Switch checked={checked} onCheckedChange={onChange} />
     </label>
   );
-}
+                                                   }
