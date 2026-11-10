@@ -49,7 +49,7 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const hydrated = useHydrated();
-  const s =useSettings();
+  const s = useSettings();
   const threads = useThreads();
 
   return (
@@ -81,7 +81,7 @@ function SettingsPage() {
               </label>
             </Section>
 
-            {/* Lili's Memory Section Added Here */}
+            {/* Lili's Memory Section */}
             <Section icon={Brain} title="Memory">
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground">
@@ -311,4 +311,4 @@ function ToggleRow({
       <Switch checked={checked} onCheckedChange={onChange} />
     </label>
   );
-                                                   }
+                  }
