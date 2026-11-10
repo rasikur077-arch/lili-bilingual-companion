@@ -30,6 +30,17 @@ export function Composer({
   const baseRef = useRef("");
   const taRef = useRef<HTMLTextAreaElement>(null);
 
+  // লিলির মুখে কথা বলানোর ফাংশন (Text-to-Speech)
+  const speakText = (text: string) => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel(); // আগের কথা বলা বন্ধ করে দিবে
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = settings.voiceLang; // বাংলা বা ইংরেজি ভাষা সিলেক্ট করা
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   const speech = useSpeechInput({
     lang: settings.voiceLang,
     onTranscript: (t) => setValue((baseRef.current ? `${baseRef.current} ` : "") + t),
@@ -57,7 +68,13 @@ export function Composer({
     const text = value.trim();
     if (!text || busy) return;
     if (speech.listening) speech.stop();
+    
+    // মেসেজ পাঠানোর সময় লিলির ভয়েস রপ্লাই চালু করার জন্য টেক্সট পাস করা যেতে পারে
     onSend(text);
+    
+    // উদহারণস্বরূপ লিলির ভয়েস আউটপুট ট্রিগার করা (যদি রিসিভড টেক্সট থাকে)
+    // speakText("বলছি..."); 
+
     setValue("");
     baseRef.current = "";
     taRef.current?.focus();
