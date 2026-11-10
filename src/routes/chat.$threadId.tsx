@@ -22,6 +22,7 @@ import {
   useThreads,
   type Thread,
 } from "@/lib/lili-store";
+import { getLiliMemories } from "@/lib/lili-memory";
 
 export const Route = createFileRoute("/chat/$threadId")({
   head: () => ({
@@ -92,6 +93,7 @@ function ChatWindow({ thread }: { thread: Thread }) {
               replyLanguage: s.replyLanguage,
               replyLength: s.replyLength,
             },
+            memories: getLiliMemories().map((m) => m.content),
           };
         },
       }),
