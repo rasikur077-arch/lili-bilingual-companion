@@ -84,9 +84,12 @@ export function PageHeader({
 
 export function AiStatusPill() {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-[11px] font-semibold text-warning">
-      <span className="size-1.5 rounded-full bg-warning" />
-      AI not connected
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan/30 bg-cyan/10 px-2.5 py-1 text-[11px] font-semibold text-cyan">
+      <span className="relative flex size-1.5">
+        <span className="absolute inset-0 rounded-full bg-cyan animate-pulse-ring" />
+        <span className="relative size-1.5 rounded-full bg-cyan" />
+      </span>
+      Lili is online
     </span>
   );
 }

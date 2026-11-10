@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Browser-only storage for the LILI AI prototype (chat threads + settings).
- * Messages follow the AI SDK UIMessage shape ({ id, role, parts }) so a real
- * model can be wired in later without migrating saved data.
+ * Browser-only storage for LILI AI (chat threads + settings).
+ * Messages follow the AI SDK UIMessage shape ({ id, role, parts }); the
+ * `notice` role is a legacy prototype value that is never sent to the AI.
  */
 
 export type TextPart = { type: "text"; text: string };
@@ -21,6 +21,8 @@ export type Thread = {
   title: string;
   createdAt: number;
   updatedAt: number;
+  /** True until the chat page has sent the first message to Lili. */
+  pending?: boolean;
   messages: ChatMessage[];
 };
 
@@ -42,7 +44,7 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = {
   userName: "",
   tone: "friendly",
-  replyLanguage: "mix",
+  replyLanguage: "bn",
   replyLength: "balanced",
   voiceLang: "bn-BD",
   sendOnEnter: true,
@@ -131,16 +133,15 @@ export function messageText(m: ChatMessage) {
   return m.parts.map((p) => p.text).join("");
 }
 
-/** Shown in place of a reply while no AI model is connected. Never a fake answer. */
-export const NOT_CONNECTED_NOTICE =
-  "AI এখনো সংযুক্ত হয়নি · Lili can't reply yet — no AI model is connected. Your message is saved.";
-
 function makeTitle(text: string) {
   const clean = text.replace(/\s+/g, " ").trim();
   return clean.length > 42 ? `${clean.slice(0, 42)}…` : clean || "New chat";
 }
 
-/** Creates a thread with the first user message and returns its id. */
+/**
+ * Creates a thread holding the first user message, flagged `pending` so the
+ * chat page sends it to Lili exactly once. Returns the thread id.
+ */
 export function createThreadWithMessage(text: string): string {
   const now = Date.now();
   const thread: Thread = {
@@ -148,27 +149,49 @@ export function createThreadWithMessage(text: string): string {
     title: makeTitle(text),
     createdAt: now,
     updatedAt: now,
-    messages: [textMessage("user", text), textMessage("notice", NOT_CONNECTED_NOTICE)],
+    pending: true,
+    messages: [textMessage("user", text)],
   };
   threadStore.set((prev) => [thread, ...prev]);
   return thread.id;
 }
 
-export function sendToThread(threadId: string, text: string) {
+/** Clears the `pending` flag once the first request has been started. */
+export function markThreadStarted(threadId: string) {
+  threadStore.set((prev) => prev.map((t) => (t.id === threadId ? { ...t, pending: false } : t)));
+}
+
+type UIMessageLike = { id: string; role: string; parts: Array<{ type: string; text?: string }> };
+
+/** Messages for the AI chat: legacy notices dropped, roles limited to user/assistant. */
+export function toChatUIMessages(messages: ChatMessage[]) {
+  return messages
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({ id: m.id, role: m.role as "user" | "assistant", parts: m.parts }));
+}
+
+/** Persists the chat's messages (text parts only). No-op when nothing changed. */
+export function saveThreadMessages(threadId: string, messages: UIMessageLike[]) {
+  const thread = threadStore.read().find((t) => t.id === threadId);
+  if (!thread) return;
+  const createdById = new Map(thread.messages.map((m) => [m.id, m.createdAt]));
+  const next: ChatMessage[] = messages
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({
+      id: m.id,
+      role: m.role as ChatRole,
+      parts: m.parts
+        .filter((p) => p.type === "text" && typeof p.text === "string")
+        .map((p) => ({ type: "text" as const, text: p.text as string })),
+      createdAt: createdById.get(m.id) ?? Date.now(),
+    }))
+    .filter((m) => m.parts.length > 0 && messageText(m).length > 0);
+
+  const sig = (list: ChatMessage[]) => JSON.stringify(list.map((m) => [m.id, m.role, m.parts]));
+  if (sig(next) === sig(thread.messages)) return;
+
   threadStore.set((prev) =>
-    prev.map((t) =>
-      t.id === threadId
-        ? {
-            ...t,
-            updatedAt: Date.now(),
-            messages: [
-              ...t.messages,
-              textMessage("user", text),
-              textMessage("notice", NOT_CONNECTED_NOTICE),
-            ],
-          }
-        : t,
-    ),
+    prev.map((t) => (t.id === threadId ? { ...t, messages: next, updatedAt: Date.now() } : t)),
   );
 }
 

@@ -1,13 +1,27 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link, useHydrated } from "@tanstack/react-router";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { ChevronLeft, MessageSquarePlus } from "lucide-react";
 
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
 import { AiStatusPill, PageHeader } from "@/components/lili/AppShell";
 import { Composer } from "@/components/lili/Composer";
 import { LiliAvatar } from "@/components/lili/LiliAvatar";
-import { MessageBubble } from "@/components/lili/MessageBubble";
+import { ErrorBubble, MessageBubble, ThinkingBubble } from "@/components/lili/MessageBubble";
 import { Button } from "@/components/ui/button";
-import { sendToThread, useSettings, useThreads } from "@/lib/lili-store";
+import {
+  markThreadStarted,
+  saveThreadMessages,
+  toChatUIMessages,
+  useSettings,
+  useThreads,
+  type Thread,
+} from "@/lib/lili-store";
 
 export const Route = createFileRoute("/chat/$threadId")({
   head: () => ({
@@ -31,14 +45,7 @@ function ChatPage() {
   const { threadId } = Route.useParams();
   const hydrated = useHydrated();
   const threads = useThreads();
-  const settings = useSettings();
   const thread = threads.find((t) => t.id === threadId);
-  const endRef = useRef<HTMLDivElement>(null);
-
-  const count = thread?.messages.length ?? 0;
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [count, threadId]);
 
   if (!hydrated) return <div className="flex-1" />;
 
@@ -56,6 +63,79 @@ function ChatPage() {
       </div>
     );
   }
+
+  return <ChatWindow key={thread.id} thread={thread} />;
+}
+
+function partsText(parts: Array<{ type: string; text?: string }>) {
+  return parts
+    .filter((p) => p.type === "text")
+    .map((p) => p.text ?? "")
+    .join("");
+}
+
+function ChatWindow({ thread }: { thread: Thread }) {
+  const settings = useSettings();
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
+  const [transport] = useState(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        body: () => {
+          const s = settingsRef.current;
+          return {
+            settings: {
+              userName: s.userName,
+              tone: s.tone,
+              replyLanguage: s.replyLanguage,
+              replyLength: s.replyLength,
+            },
+          };
+        },
+      }),
+  );
+
+  const { messages, sendMessage, regenerate, status, error, stop, clearError } = useChat({
+    id: thread.id,
+    messages: toChatUIMessages(thread.messages),
+    transport,
+  });
+
+  const busy = status === "submitted" || status === "streaming";
+
+  // Persist to this thread whenever a turn settles (and right after the user sends).
+  useEffect(() => {
+    if (status === "streaming") return;
+    saveThreadMessages(thread.id, messages);
+  }, [messages, status, thread.id]);
+
+  // A thread created from the home screen sends its first message exactly once.
+  const kicked = useRef(false);
+  // Deferred so a dev-mode remount can't cancel the request mid-flight.
+  useEffect(() => {
+    if (kicked.current || !thread.pending) return;
+    const timer = setTimeout(() => {
+      if (kicked.current) return;
+      kicked.current = true;
+      markThreadStarted(thread.id);
+      void regenerate();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [thread.id, thread.pending, regenerate]);
+
+  const createdAt = new Map(thread.messages.map((m) => [m.id, m.createdAt]));
+  const last = messages.at(-1);
+  const lastAssistantEmpty =
+    last?.role === "assistant" && partsText(last.parts).trim().length === 0;
+  const thinking = status === "submitted" || (status === "streaming" && lastAssistantEmpty);
+  const unanswered = !busy && !error && last?.role === "user" && !thread.pending;
+
+  const retry = () => {
+    clearError();
+    void regenerate();
+  };
 
   return (
     <>
@@ -85,19 +165,53 @@ function ChatPage() {
         <AiStatusPill />
       </div>
 
-      <main
-        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto scrollbar-none px-4 py-4"
-        aria-live="polite"
-      >
-        {thread.messages.map((m) => (
-          <MessageBubble key={m.id} message={m} showTime={settings.showTimestamps} />
-        ))}
-        <div ref={endRef} />
-      </main>
+      <Conversation className="min-h-0">
+        <ConversationContent className="gap-4 px-4 py-4">
+          {messages.map((m, i) => {
+            if (m.role !== "user" && m.role !== "assistant") return null;
+            const text = partsText(m.parts);
+            const isStreamingThis = status === "streaming" && i === messages.length - 1;
+            if (m.role === "assistant" && !text.trim()) return null;
+            return (
+              <MessageBubble
+                key={m.id}
+                role={m.role}
+                text={text}
+                streaming={isStreamingThis}
+                time={settings.showTimestamps ? (createdAt.get(m.id) ?? Date.now()) : undefined}
+              />
+            );
+          })}
+          {thinking && <ThinkingBubble language={settings.replyLanguage} />}
+          {error && <ErrorBubble message={readableError(error)} onRetry={retry} />}
+          {unanswered && (
+            <ErrorBubble
+              message="Lili hasn't replied to this message yet. (এই বার্তার উত্তর এখনো আসেনি।)"
+              onRetry={retry}
+            />
+          )}
+        </ConversationContent>
+        <ConversationScrollButton className="glass bottom-2 text-foreground" />
+      </Conversation>
 
       <div className="px-3 pb-3">
-        <Composer key={threadId} onSend={(text) => sendToThread(threadId, text)} />
+        <Composer
+          busy={busy}
+          onStop={() => void stop()}
+          onSend={(text) => {
+            clearError();
+            void sendMessage({ text });
+          }}
+        />
       </div>
     </>
   );
+}
+
+function readableError(error: Error) {
+  const msg = error.message?.trim();
+  if (!msg || /failed to fetch|networkerror|load failed/i.test(msg)) {
+    return "Couldn't reach Lili. Check your internet connection and try again. (ইন্টারনেট সংযোগ পরীক্ষা করুন।)";
+  }
+  return msg.length > 300 ? `${msg.slice(0, 300)}…` : msg;
 }

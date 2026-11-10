@@ -12,9 +12,19 @@ type Props = {
   onListeningChange?: (listening: boolean) => void;
   autoFocus?: boolean;
   placeholder?: string;
+  /** True while Lili is replying: sending is blocked and Stop is shown. */
+  busy?: boolean;
+  onStop?: () => void;
 };
 
-export function Composer({ onSend, onListeningChange, autoFocus = true, placeholder }: Props) {
+export function Composer({
+  onSend,
+  onListeningChange,
+  autoFocus = true,
+  placeholder,
+  busy = false,
+  onStop,
+}: Props) {
   const settings = useSettings();
   const [value, setValue] = useState("");
   const baseRef = useRef("");
@@ -45,7 +55,7 @@ export function Composer({ onSend, onListeningChange, autoFocus = true, placehol
 
   const submit = () => {
     const text = value.trim();
-    if (!text) return;
+    if (!text || busy) return;
     if (speech.listening) speech.stop();
     onSend(text);
     setValue("");
@@ -118,16 +128,29 @@ export function Composer({ onSend, onListeningChange, autoFocus = true, placehol
         )}
       </div>
 
-      <Button
-        type="submit"
-        variant="glow"
-        size="icon-lg"
-        disabled={!value.trim()}
-        aria-label="Send message"
-        className="shrink-0"
-      >
-        <ArrowUp className="!size-5" />
-      </Button>
+      {busy && onStop ? (
+        <Button
+          type="button"
+          variant="glow"
+          size="icon-lg"
+          onClick={onStop}
+          aria-label="Stop Lili's reply"
+          className="shrink-0"
+        >
+          <Square className="!size-4 fill-current" />
+        </Button>
+      ) : (
+        <Button
+          type="submit"
+          variant="glow"
+          size="icon-lg"
+          disabled={!value.trim() || busy}
+          aria-label="Send message"
+          className="shrink-0"
+        >
+          <ArrowUp className="!size-5" />
+        </Button>
+      )}
     </form>
   );
 }

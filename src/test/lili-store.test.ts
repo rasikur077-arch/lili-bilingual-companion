@@ -1,32 +1,61 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
-  NOT_CONNECTED_NOTICE,
+  DEFAULT_SETTINGS,
   clearAllThreads,
   createThreadWithMessage,
-  messageText,
-  sendToThread,
+  markThreadStarted,
+  saveThreadMessages,
+  toChatUIMessages,
 } from "@/lib/lili-store";
 
 function readThreads() {
   return JSON.parse(window.localStorage.getItem("lili.threads.v1") ?? "[]");
 }
 
-describe("Lili prototype chat (no AI connected)", () => {
+describe("Lili chat storage", () => {
   beforeEach(() => clearAllThreads());
 
-  it("never invents an assistant reply — it adds a not-connected notice instead", () => {
+  it("defaults Lili's reply language to Bangla", () => {
+    expect(DEFAULT_SETTINGS.replyLanguage).toBe("bn");
+  });
+
+  it("starts a new chat with only the user's message and no pre-written reply", () => {
     const id = createThreadWithMessage("হ্যালো Lili");
-    sendToThread(id, "Second message");
     const [thread] = readThreads();
-    const roles = thread.messages.map((m: { role: string }) => m.role);
-    expect(roles).toEqual(["user", "notice", "user", "notice"]);
-    expect(roles).not.toContain("assistant");
-    expect(messageText(thread.messages[1])).toBe(NOT_CONNECTED_NOTICE);
+    expect(thread.id).toBe(id);
+    expect(thread.pending).toBe(true);
+    expect(thread.messages.map((m: { role: string }) => m.role)).toEqual(["user"]);
+    markThreadStarted(id);
+    expect(readThreads()[0].pending).toBe(false);
   });
 
   it("titles a new chat from its first message", () => {
     createThreadWithMessage("Help me write a polite email");
     expect(readThreads()[0].title).toBe("Help me write a polite email");
+  });
+
+  it("saves only text parts and never sends legacy notices to the AI", () => {
+    const id = createThreadWithMessage("hi");
+    const [thread] = readThreads();
+    saveThreadMessages(id, [
+      ...thread.messages,
+      {
+        id: "msg_a",
+        role: "assistant",
+        parts: [
+          { type: "reasoning", text: "thinking" },
+          { type: "text", text: "হ্যালো!" },
+        ],
+      },
+    ]);
+    const saved = readThreads()[0].messages;
+    expect(saved[1].parts).toEqual([{ type: "text", text: "হ্যালো!" }]);
+
+    const ui = toChatUIMessages([
+      ...saved,
+      { id: "n1", role: "notice", parts: [{ type: "text", text: "old" }], createdAt: 1 },
+    ]);
+    expect(ui.map((m) => m.role)).toEqual(["user", "assistant"]);
   });
 });
