@@ -28,3 +28,9 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+
+- Chat threads and settings live in browser localStorage via `src/lib/lili-store.ts` (useSyncExternalStore, server snapshot = defaults) — prototype phase has no backend; messages use the AI SDK `UIMessage` shape so a real model can be wired in without data migration.
+- While no AI model is connected, sending a message appends a `notice` message, never an `assistant` message — the product must not pretend AI replies work.
+- Voice input uses the browser Web Speech API (`src/hooks/use-speech-input.ts`) — no API key needed client-side.
