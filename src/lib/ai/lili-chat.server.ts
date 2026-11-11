@@ -62,7 +62,9 @@ export function friendlyAiError(error: unknown): string {
 }
 
 export async function handleLiliChat(request: Request): Promise<Response> {
-  const baseURL = process.env["LILI_AI_BASE_URL"]?.trim() || LEGACY_GATEWAY_URL;
+  const configuredBaseURL = process.env["LILI_AI_BASE_URL"]?.trim();
+  const useLegacyGateway = process.env["LILI_AI_USE_LEGACY_GATEWAY"] === "true";
+  const baseURL = configuredBaseURL || (useLegacyGateway ? LEGACY_GATEWAY_URL : "");
   const modelName = process.env["LILI_AI_MODEL"]?.trim() || DEFAULT_MODEL;
   const isLovableGateway = baseURL.replace(/\/$/, "") === LEGACY_GATEWAY_URL;
   const apiKey =
@@ -72,9 +74,12 @@ export async function handleLiliChat(request: Request): Promise<Response> {
 
   // Local OpenAI-compatible servers (for example, Ollama or LM Studio) can use
   // a placeholder key. Remote providers must supply their key on the server.
+  if (!baseURL) {
+    return textError("Lili is in zero-cost mode, but no local AI engine is connected yet.", 503);
+  }
   if (!apiKey && !isLocalEndpoint) {
     console.error("[lili-chat] No API key configured for the selected AI provider");
-    return textError("Lili's AI provider isn't configured. No paid provider will be started automatically.", 503);
+    return textError("The selected remote AI provider needs a server-side key. No paid provider will be started automatically.", 503);
   }
 
   let parsed: z.infer<typeof bodySchema>;
@@ -131,7 +136,7 @@ export async function handleLiliChat(request: Request): Promise<Response> {
   });
 
   const result = streamText({
-    model: provider.responses(modelName),
+    model: isLovableGateway ? provider.responses(modelName) : provider.chat(modelName),
     instructions: buildLiliInstructions(settings, memories),
     messages: modelMessages,
     abortSignal: request.signal,
