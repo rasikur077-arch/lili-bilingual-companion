@@ -15,7 +15,7 @@ export function MessageBubble({
   streaming = false,
 }: {
   /** Message id; enables read-aloud controls on Lili's replies. */
-  id?: string;
+  id?: string | undefined;
   role: "user" | "assistant";
   text: string;
   time?: number | undefined;

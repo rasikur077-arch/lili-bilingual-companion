@@ -10,8 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as MemoryRouteImport } from './routes/Memory'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ChatThreadIdRouteImport } from './routes/chat.$threadId'
@@ -21,14 +21,14 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MemoryRoute = MemoryRouteImport.update({
-  id: '/Memory',
-  path: '/Memory',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MemoryRoute = MemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -49,16 +49,16 @@ const ChatThreadIdRoute = ChatThreadIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/Memory': typeof MemoryRoute
   '/history': typeof HistoryRoute
+  '/memory': typeof MemoryRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/Memory': typeof MemoryRoute
   '/history': typeof HistoryRoute
+  '/memory': typeof MemoryRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
@@ -66,8 +66,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/Memory': typeof MemoryRoute
   '/history': typeof HistoryRoute
+  '/memory': typeof MemoryRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
@@ -75,15 +75,15 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/Memory' | '/history' | '/settings' | '/api/chat' | '/chat/$threadId'
+    '/' | '/history' | '/memory' | '/settings' | '/api/chat' | '/chat/$threadId'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/Memory' | '/history' | '/settings' | '/api/chat' | '/chat/$threadId'
+    '/' | '/history' | '/memory' | '/settings' | '/api/chat' | '/chat/$threadId'
   id:
     | '__root__'
     | '/'
-    | '/Memory'
     | '/history'
+    | '/memory'
     | '/settings'
     | '/api/chat'
     | '/chat/$threadId'
@@ -91,8 +91,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  MemoryRoute: typeof MemoryRoute
   HistoryRoute: typeof HistoryRoute
+  MemoryRoute: typeof MemoryRoute
   SettingsRoute: typeof SettingsRoute
   ApiChatRoute: typeof ApiChatRoute
   ChatThreadIdRoute: typeof ChatThreadIdRoute
@@ -107,18 +107,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/Memory': {
-      id: '/Memory'
-      path: '/Memory'
-      fullPath: '/Memory'
-      preLoaderRoute: typeof MemoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/history': {
       id: '/history'
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/memory': {
+      id: '/memory'
+      path: '/memory'
+      fullPath: '/memory'
+      preLoaderRoute: typeof MemoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -147,8 +147,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  MemoryRoute: MemoryRoute,
   HistoryRoute: HistoryRoute,
+  MemoryRoute: MemoryRoute,
   SettingsRoute: SettingsRoute,
   ApiChatRoute: ApiChatRoute,
   ChatThreadIdRoute: ChatThreadIdRoute,
