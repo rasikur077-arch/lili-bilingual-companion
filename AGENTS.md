@@ -34,3 +34,4 @@ use the editor.
 - Chat threads and settings live in browser localStorage via `src/lib/lili-store.ts` (useSyncExternalStore, server snapshot = defaults) — prototype phase has no backend; messages use the AI SDK `UIMessage` shape so a real model can be wired in without data migration.
 - While no AI model is connected, sending a message appends a `notice` message, never an `assistant` message — the product must not pretend AI replies work.
 - Voice input uses the browser Web Speech API (`src/hooks/use-speech-input.ts`) — no API key needed client-side.
+- Read-aloud uses browser SpeechSynthesis through one global controller (`src/lib/lili-tts.ts`) — guarantees a single voice at a time; replies are spoken sentence-by-sentence and pause is cancel-and-resume-from-sentence because native pause() is unreliable on Android Chrome.

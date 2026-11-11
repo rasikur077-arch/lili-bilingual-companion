@@ -13,7 +13,7 @@ import {
   type LiliMemory,
 } from "@/lib/lili-memory";
 
-export const Route = createFileRoute("/memory")({
+export const Route = createFileRoute("/Memory")({
   head: () => ({
     meta: [
       { title: "Memory Management — LILI AI" },

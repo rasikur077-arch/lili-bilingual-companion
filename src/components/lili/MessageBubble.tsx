@@ -4,14 +4,18 @@ import { format } from "date-fns";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { LiliAvatar } from "@/components/lili/LiliAvatar";
+import { SpeakControls } from "@/components/lili/SpeakControls";
 import { Button } from "@/components/ui/button";
 
 export function MessageBubble({
+  id,
   role,
   text,
   time,
   streaming = false,
 }: {
+  /** Message id; enables read-aloud controls on Lili's replies. */
+  id?: string;
   role: "user" | "assistant";
   text: string;
   time?: number | undefined;
@@ -39,8 +43,11 @@ export function MessageBubble({
             {text}
           </MessageResponse>
         </MessageContent>
-        {stamp && !streaming && (
-          <span className="pl-2 text-[11px] text-muted-foreground">{stamp}</span>
+        {!streaming && (id || stamp) && (
+          <div className="flex items-center gap-1 pl-1">
+            {id && <SpeakControls id={id} text={text} />}
+            {stamp && <span className="pl-1 text-[11px] text-muted-foreground">{stamp}</span>}
+          </div>
         )}
       </div>
     </Message>

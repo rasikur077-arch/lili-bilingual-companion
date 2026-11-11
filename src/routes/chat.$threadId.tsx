@@ -23,6 +23,7 @@ import {
   type Thread,
 } from "@/lib/lili-store";
 import { getLiliMemories } from "@/lib/lili-memory";
+import { stopSpeaking, warmUpVoices } from "@/lib/lili-tts";
 
 export const Route = createFileRoute("/chat/$threadId")({
   head: () => ({
@@ -107,6 +108,12 @@ function ChatWindow({ thread }: { thread: Thread }) {
 
   const busy = status === "submitted" || status === "streaming";
 
+  // Read-aloud: load voices early; stop speaking when leaving this conversation.
+  useEffect(() => {
+    warmUpVoices();
+    return () => stopSpeaking();
+  }, []);
+
   // Persist to this thread whenever a turn settles (and right after the user sends).
   useEffect(() => {
     if (status === "streaming") return;
@@ -177,6 +184,7 @@ function ChatWindow({ thread }: { thread: Thread }) {
             return (
               <MessageBubble
                 key={m.id}
+                id={m.role === "assistant" ? m.id : undefined}
                 role={m.role}
                 text={text}
                 streaming={isStreamingThis}

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MemoryRouteImport } from './routes/Memory'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
@@ -18,6 +19,11 @@ import { Route as ChatThreadIdRouteImport } from './routes/chat.$threadId'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MemoryRoute = MemoryRouteImport.update({
+  id: '/Memory',
+  path: '/Memory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -43,6 +49,7 @@ const ChatThreadIdRoute = ChatThreadIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/Memory': typeof MemoryRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/Memory': typeof MemoryRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/Memory': typeof MemoryRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
@@ -65,12 +74,15 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/history' | '/settings' | '/api/chat' | '/chat/$threadId'
+  fullPaths:
+    '/' | '/Memory' | '/history' | '/settings' | '/api/chat' | '/chat/$threadId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/settings' | '/api/chat' | '/chat/$threadId'
+  to:
+    '/' | '/Memory' | '/history' | '/settings' | '/api/chat' | '/chat/$threadId'
   id:
     | '__root__'
     | '/'
+    | '/Memory'
     | '/history'
     | '/settings'
     | '/api/chat'
@@ -79,6 +91,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  MemoryRoute: typeof MemoryRoute
   HistoryRoute: typeof HistoryRoute
   SettingsRoute: typeof SettingsRoute
   ApiChatRoute: typeof ApiChatRoute
@@ -92,6 +105,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/Memory': {
+      id: '/Memory'
+      path: '/Memory'
+      fullPath: '/Memory'
+      preLoaderRoute: typeof MemoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -127,6 +147,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  MemoryRoute: MemoryRoute,
   HistoryRoute: HistoryRoute,
   SettingsRoute: SettingsRoute,
   ApiChatRoute: ApiChatRoute,
