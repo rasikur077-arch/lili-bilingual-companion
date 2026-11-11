@@ -140,7 +140,7 @@ function loadVoices(): Promise<SpeechSynthesisVoice[]> {
       clearTimeout(timer);
       resolve(synth.getVoices());
     };
-    const timer = setTimeout(done, 1500);
+    const timer = setTimeout(done, 5000);
     synth.addEventListener?.("voiceschanged", done);
   });
 }
