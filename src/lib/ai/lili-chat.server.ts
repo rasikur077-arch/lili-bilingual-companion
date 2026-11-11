@@ -65,12 +65,13 @@ export async function handleLiliChat(request: Request): Promise<Response> {
   const configuredBaseURL = process.env["LILI_AI_BASE_URL"]?.trim();
   const useLegacyGateway = process.env["LILI_AI_USE_LEGACY_GATEWAY"] === "true";
   const baseURL = configuredBaseURL || (useLegacyGateway ? LEGACY_GATEWAY_URL : "");
-  const modelName = process.env["LILI_AI_MODEL"]?.trim() || DEFAULT_MODEL;
   const isLovableGateway = baseURL.replace(/\/$/, "") === LEGACY_GATEWAY_URL;
+  const isLocalEndpoint = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(baseURL);
+  const modelName =
+    process.env["LILI_AI_MODEL"]?.trim() || (isLocalEndpoint ? "qwen2.5:1.5b" : DEFAULT_MODEL);
   const apiKey =
     process.env["LILI_AI_API_KEY"]?.trim() ||
     (isLovableGateway ? process.env["LOVABLE_API_KEY"] : undefined);
-  const isLocalEndpoint = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(baseURL);
 
   // Local OpenAI-compatible servers (for example, Ollama or LM Studio) can use
   // a placeholder key. Remote providers must supply their key on the server.
