@@ -1,10 +1,28 @@
 const MAX_CONTEXT_MEMORIES = 8;
 const MAX_MEMORY_LENGTH = 500;
+const STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "for",
+  "help",
+  "in",
+  "me",
+  "my",
+  "on",
+  "please",
+  "study",
+  "studies",
+  "the",
+  "to",
+  "with",
+]);
 
 function words(value: string) {
   return new Set(
-    (value.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])
-      .filter((word) => word.length > 1),
+    (value.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter(
+      (word) => word.length > 1 && !STOP_WORDS.has(word),
+    ),
   );
 }
 
