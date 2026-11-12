@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cleanForSpeech, pickVoice, splitSpeechChunks } from "@/lib/lili-tts";
+import { cleanForSpeech, filterSpeakableChunks, pickVoice, splitSpeechChunks } from "@/lib/lili-tts";
 
 const v = (lang: string, name = lang) => ({ lang, name });
 
@@ -20,6 +20,15 @@ describe("Lili read-aloud", () => {
 
   it("reports no Bangla voice instead of using an English one", () => {
     expect(pickVoice([v("en-US"), v("en-GB")], "bn")).toBeNull();
+  });
+
+  it("skips Bangla chunks when no Bengali voice is installed but keeps English", () => {
+    const planned = [
+      { text: "বাংলা", lang: "bn" as const, voice: null },
+      { text: "Hello", lang: "en" as const, voice: v("en-US") },
+      { text: "বাংলা voice", lang: "bn" as const, voice: v("bn-BD") },
+    ];
+    expect(filterSpeakableChunks(planned).map((chunk) => chunk.text)).toEqual(["Hello", "বাংলা voice"]);
   });
 
   it("picks an English voice for English text", () => {
