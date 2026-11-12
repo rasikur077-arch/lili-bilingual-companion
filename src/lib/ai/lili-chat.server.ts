@@ -126,6 +126,7 @@ export async function handleLiliChat(request: Request): Promise<Response> {
   const imageValidation = validateImageParts(uiMessages);
   if (imageValidation) return textError(imageValidation, 413);
 
+  const textLengths = uiMessages.map((message) =>
     message.parts.reduce(
       (total, part) => total + (part.type === "text" && typeof part.text === "string" ? part.text.length : 0),
       0,
@@ -147,10 +148,7 @@ export async function handleLiliChat(request: Request): Promise<Response> {
   let modelMessages;
   try {
     modelMessages = await convertToModelMessages(
-      uiMessages.map((message) => ({
-        ...message,
-        parts: message.parts.filter((part) => part.type === "text"),
-      })),
+      uiMessages,
     );
   } catch {
     return textError("Invalid chat history. Please start a new chat.", 400);
