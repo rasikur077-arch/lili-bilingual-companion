@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Mic, Square } from "lucide-react";
+import { ArrowUp, ImagePlus, Mic, Square, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { stopSpeaking } from "@/lib/lili-tts";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  onSend: (text: string) => void;
+  onSend: (text: string, files: File[]) => void;
   onListeningChange?: (listening: boolean) => void;
   autoFocus?: boolean;
   placeholder?: string;
@@ -28,6 +28,8 @@ export function Composer({
 }: Props) {
   const settings = useSettings();
   const [value, setValue] = useState("");
+  const [images, setImages] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const baseRef = useRef("");
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -81,7 +83,7 @@ export function Composer({
         e.preventDefault();
         submit();
       }}
-      className="glass flex items-end gap-2 rounded-[1.75rem] p-2 shadow-soft"
+      className="glass flex flex-col gap-2 rounded-[1.75rem] p-2 shadow-soft"
     >
       <Button
         type="button"
@@ -149,7 +151,7 @@ export function Composer({
           type="submit"
           variant="glow"
           size="icon-lg"
-          disabled={!value.trim() || busy}
+          disabled={(!value.trim() && images.length === 0) || busy}
           aria-label="Send message"
           className="shrink-0"
         >
