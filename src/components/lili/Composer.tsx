@@ -34,7 +34,7 @@ export function Composer({
 
   const speech = useSpeechInput({
     lang: settings.voiceLang,
-    onTranscript: (t) => setValue((baseRef.current ? `${baseRef.current} ` : "") + t),
+    onTranscript: (t) => setValue(`${baseRef.current ? `${baseRef.current} ` : ""}${t}`),
     onError: (msg) => toast.error(msg),
   });
 
