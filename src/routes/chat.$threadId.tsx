@@ -24,7 +24,7 @@ import {
   type Thread,
   newId,
 } from "@/lib/lili-store";
-import { saveChatImage } from "@/lib/lili-attachments";
+import { getChatImages, imageBlobToDataUrl, saveChatImage } from "@/lib/lili-attachments";
 import { getLiliMemories } from "@/lib/lili-memory";
 import { speakReply, stopSpeaking, warmUpVoices } from "@/lib/lili-tts";
 
@@ -80,6 +80,39 @@ function partsText(parts: Array<{ type: string; text?: string }>) {
 }
 
 function ChatWindow({ thread }: { thread: Thread }) {
+  const [initialMessages, setInitialMessages] = useState<ReturnType<typeof toChatUIMessages> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function restoreImages() {
+      const restored = await Promise.all(
+        toChatUIMessages(thread.messages).map(async (message) => {
+          const images = await getChatImages(thread.id, message.id).catch(() => []);
+          const fileParts = await Promise.all(images.map(async (image) => ({
+            type: "file" as const,
+            mediaType: image.mediaType,
+            filename: image.filename,
+            url: await imageBlobToDataUrl(image.blob),
+          })));
+          return { ...message, parts: [...message.parts, ...fileParts] };
+        }),
+      );
+      if (!cancelled) setInitialMessages(restored as ReturnType<typeof toChatUIMessages>);
+    }
+    void restoreImages().catch(() => {
+      if (!cancelled) setInitialMessages(toChatUIMessages(thread.messages));
+    });
+    return () => { cancelled = true; };
+  }, [thread.id, thread.messages]);
+
+  if (!initialMessages) return <div className="flex-1" role="status" aria-label="Restoring conversation" />;
+  return <ChatRuntime thread={thread} initialMessages={initialMessages} />;
+}
+
+function ChatRuntime({ thread, initialMessages }: {
+  thread: Thread;
+  initialMessages: ReturnType<typeof toChatUIMessages>;
+}) {
   const settings = useSettings();
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -105,7 +138,7 @@ function ChatWindow({ thread }: { thread: Thread }) {
 
   const { messages, sendMessage, regenerate, status, error, stop, clearError } = useChat({
     id: thread.id,
-    messages: toChatUIMessages(thread.messages),
+    messages: initialMessages,
     transport,
   });
 
@@ -237,15 +270,21 @@ function ChatWindow({ thread }: { thread: Thread }) {
           onSend={(text, files) => {
             clearError();
             const messageId = newId("msg");
-            void Promise.all(files.map((file, index) => saveChatImage({
-              threadId: thread.id,
-              messageId,
-              index,
-              blob: file,
-              mediaType: file.type,
-              filename: file.name,
-            }))).catch(() => toast.error("ছবিটি এই ডিভাইসে সংরক্ষণ করা যায়নি; chat বন্ধ করলে এটি হারিয়ে যেতে পারে।"));
-            void sendMessage({ text, files, messageId });
+            void (async () => {
+              try {
+                await Promise.all(files.map((file, index) => saveChatImage({
+                  threadId: thread.id,
+                  messageId,
+                  index,
+                  blob: file,
+                  mediaType: file.type,
+                  filename: file.name,
+                })));
+              } catch {
+                toast.error("ছবিটি এই ডিভাইসে সংরক্ষণ করা যায়নি; chat বন্ধ করলে এটি হারিয়ে যেতে পারে।");
+              }
+              await sendMessage({ text, files, messageId });
+            })();
           }}
         />
       </div>
