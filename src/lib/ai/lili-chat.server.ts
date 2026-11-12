@@ -15,6 +15,9 @@ const DEFAULT_MODEL = "openai/gpt-6-astra";
 const MAX_HISTORY = 30;
 const MAX_MESSAGE_CHARS = 12_000;
 const MAX_TOTAL_CHARS = 60_000;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGES_PER_MESSAGE = 3;
+const IMAGE_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const MAX_MEMORIES = 100;
 
 const partSchema = z.object({ type: z.string() }).passthrough();
@@ -35,6 +38,35 @@ const bodySchema = z.object({
   settings: aiSettingsSchema.partial().optional(),
   memories: z.array(z.string().max(500)).max(MAX_MEMORIES).optional(),
 });
+
+function validateImageParts(messages: UIMessage[]): string | null {
+  for (const message of messages) {
+    const imageParts = message.parts.filter((part) => part.type === "file");
+    if (imageParts.length > MAX_IMAGES_PER_MESSAGE) {
+      return "A message can contain up to 3 images. (এক বার্তায় সর্বোচ্চ ৩টি ছবি পাঠানো যাবে।)";
+    }
+
+    for (const part of imageParts) {
+      if (!("mediaType" in part) || typeof part.mediaType !== "string" || !IMAGE_MEDIA_TYPES.has(part.mediaType)) {
+        return "Only JPG, PNG, WebP, and GIF images are supported. (শুধু JPG, PNG, WebP ও GIF ছবি পাঠানো যাবে।)";
+      }
+      if (!("url" in part) || typeof part.url !== "string") {
+        return "The attached image is invalid. Please attach it again. (ছবিটি ঠিকভাবে যুক্ত হয়নি। আবার দিন।)";
+      }
+
+      const prefix = `data:${part.mediaType};base64,`;
+      if (!part.url.startsWith(prefix)) {
+        return "Images must be uploaded directly from your device. (ডিভাইস থেকে সরাসরি ছবি নির্বাচন করুন।)";
+      }
+      const base64 = part.url.slice(prefix.length);
+      const estimatedBytes = Math.floor((base64.length * 3) / 4);
+      if (!base64 || estimatedBytes > MAX_IMAGE_BYTES || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
+        return "Each image must be 5 MB or smaller. (প্রতিটি ছবি সর্বোচ্চ ৫ MB হতে পারবে।)";
+      }
+    }
+  }
+  return null;
+}
 
 function textError(message: string, status: number) {
   return new Response(message, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
@@ -91,7 +123,7 @@ export async function handleLiliChat(request: Request): Promise<Response> {
   }
 
   const uiMessages = parsed.messages.slice(-MAX_HISTORY) as unknown as UIMessage[];
-  const textLengths = uiMessages.map((message) =>
+  const imageValidation = validateImageParts(uiMessages);\n  if (imageValidation) return textError(imageValidation, 413);\n\n  const textLengths = uiMessages.map((message) =>
     message.parts.reduce(
       (total, part) => total + (part.type === "text" && typeof part.text === "string" ? part.text.length : 0),
       0,
