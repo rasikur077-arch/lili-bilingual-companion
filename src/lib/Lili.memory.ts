@@ -11,9 +11,8 @@ export function getLiliMemories(): LiliMemory[] {
 
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    const parsed = data ? JSON.parse(data) : [];
-
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed: unknown = data ? JSON.parse(data) : [];
+    return Array.isArray(parsed) ? (parsed as LiliMemory[]) : [];
   } catch {
     return [];
   }
@@ -21,39 +20,40 @@ export function getLiliMemories(): LiliMemory[] {
 
 export function saveLiliMemory(content: string): LiliMemory[] {
   const clean = content.trim();
-
-  if (!clean || clean.length > 500) {
-    return getLiliMemories();
-  }
+  if (!clean || clean.length > 500) return getLiliMemories();
 
   const memories = getLiliMemories();
-
   const newMemory: LiliMemory = {
-    id: crypto.randomUUID(),
+    id: typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `memory_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     content: clean,
     createdAt: Date.now(),
   };
-
   const updated = [...memories, newMemory].slice(-100);
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    return updated;
   } catch {
     return memories;
   }
-
-  return updated;
 }
 
 export function deleteLiliMemory(id: string): LiliMemory[] {
-  const updated = getLiliMemories().filter(
-    (memory) => memory.id !== id
-  );
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  return updated;
+  const updated = getLiliMemories().filter((memory) => memory.id !== id);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    return updated;
+  } catch {
+    return getLiliMemories();
+  }
 }
 
 export function clearLiliMemories(): void {
-  localStorage.removeItem(STORAGE_KEY);
-    }
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Storage may be unavailable or blocked by the browser.
+  }
+}

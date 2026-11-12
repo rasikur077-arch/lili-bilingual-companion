@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { deleteChatImages } from "@/lib/lili-attachments";
 
 /**
  * Browser-only storage for LILI AI (chat threads + settings).
@@ -7,12 +8,13 @@ import { useSyncExternalStore } from "react";
  */
 
 export type TextPart = { type: "text"; text: string };
+export type ImagePart = { type: "file"; mediaType: string; filename?: string };
 export type ChatRole = "user" | "assistant" | "notice";
 
 export type ChatMessage = {
   id: string;
   role: ChatRole;
-  parts: TextPart[];
+  parts: Array<TextPart | ImagePart>;
   createdAt: number;
 };
 
@@ -37,6 +39,7 @@ export type Settings = {
   replyLanguage: ReplyLanguage;
   replyLength: ReplyLength;
   voiceLang: VoiceLang;
+  autoReadReplies: boolean;
   sendOnEnter: boolean;
   showTimestamps: boolean;
 };
@@ -47,6 +50,7 @@ export const DEFAULT_SETTINGS: Settings = {
   replyLanguage: "bn",
   replyLength: "balanced",
   voiceLang: "bn-BD",
+  autoReadReplies: false,
   sendOnEnter: true,
   showTimestamps: true,
 };
@@ -130,7 +134,7 @@ export function textMessage(role: ChatRole, text: string): ChatMessage {
 }
 
 export function messageText(m: ChatMessage) {
-  return m.parts.map((p) => p.text).join("");
+  return m.parts.filter((p): p is TextPart => p.type === "text").map((p) => p.text).join("");
 }
 
 function makeTitle(text: string) {
@@ -142,15 +146,35 @@ function makeTitle(text: string) {
  * Creates a thread holding the first user message, flagged `pending` so the
  * chat page sends it to Lili exactly once. Returns the thread id.
  */
-export function createThreadWithMessage(text: string): string {
+export function createThreadWithMessage(
+  text: string,
+  options: {
+    threadId?: string;
+    messageId?: string;
+    images?: Array<{ mediaType: string; filename?: string }>;
+  } = {},
+): string {
   const now = Date.now();
+  const firstMessage: ChatMessage = {
+    id: options.messageId ?? newId("msg"),
+    role: "user",
+    parts: [
+      ...(text ? [{ type: "text" as const, text }] : []),
+      ...(options.images ?? []).map((image) => ({
+        type: "file" as const,
+        mediaType: image.mediaType,
+        ...(image.filename ? { filename: image.filename } : {}),
+      })),
+    ],
+    createdAt: now,
+  };
   const thread: Thread = {
-    id: newId("t"),
-    title: makeTitle(text),
+    id: options.threadId ?? newId("t"),
+    title: makeTitle(text || "Image message"),
     createdAt: now,
     updatedAt: now,
     pending: true,
-    messages: [textMessage("user", text)],
+    messages: [firstMessage],
   };
   threadStore.set((prev) => [thread, ...prev]);
   return thread.id;
@@ -161,13 +185,19 @@ export function markThreadStarted(threadId: string) {
   threadStore.set((prev) => prev.map((t) => (t.id === threadId ? { ...t, pending: false } : t)));
 }
 
-type UIMessageLike = { id: string; role: string; parts: Array<{ type: string; text?: string }> };
+type UIMessageLike = { id: string; role: string; parts: Array<{ type: string; text?: string; mediaType?: string; filename?: string }> };
 
 /** Messages for the AI chat: legacy notices dropped, roles limited to user/assistant. */
 export function toChatUIMessages(messages: ChatMessage[]) {
   return messages
     .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => ({ id: m.id, role: m.role as "user" | "assistant", parts: m.parts }));
+    .map((m) => ({
+      id: m.id,
+      role: m.role as "user" | "assistant",
+      // Binary files are rehydrated from IndexedDB by the chat view; never
+      // send metadata-only file parts to the AI SDK as if they had URLs.
+      parts: m.parts.filter((part): part is TextPart => part.type === "text"),
+    }));
 }
 
 /** Persists the chat's messages (text parts only). No-op when nothing changed. */
@@ -180,12 +210,16 @@ export function saveThreadMessages(threadId: string, messages: UIMessageLike[]) 
     .map((m) => ({
       id: m.id,
       role: m.role as ChatRole,
-      parts: m.parts
-        .filter((p) => p.type === "text" && typeof p.text === "string")
-        .map((p) => ({ type: "text" as const, text: p.text as string })),
+      parts: m.parts.flatMap((p) => {
+        if (p.type === "text" && typeof p.text === "string") return [{ type: "text" as const, text: p.text }];
+        if (p.type === "file" && typeof p.mediaType === "string" && p.mediaType.startsWith("image/")) {
+          return [{ type: "file" as const, mediaType: p.mediaType, ...(typeof p.filename === "string" ? { filename: p.filename } : {}) }];
+        }
+        return [];
+      }),
       createdAt: createdById.get(m.id) ?? Date.now(),
     }))
-    .filter((m) => m.parts.length > 0 && messageText(m).length > 0);
+    .filter((m) => m.parts.length > 0 && (messageText(m).length > 0 || m.parts.some((p) => p.type === "file")));
 
   const sig = (list: ChatMessage[]) => JSON.stringify(list.map((m) => [m.id, m.role, m.parts]));
   if (sig(next) === sig(thread.messages)) return;
@@ -197,8 +231,17 @@ export function saveThreadMessages(threadId: string, messages: UIMessageLike[]) 
 
 export function deleteThread(threadId: string) {
   threadStore.set((prev) => prev.filter((t) => t.id !== threadId));
+  void deleteChatImages(threadId).catch(() => {
+    // A thread can still be deleted when IndexedDB is unavailable.
+  });
 }
 
 export function clearAllThreads() {
+  const threadIds = threadStore.read().map((thread) => thread.id);
   threadStore.set(() => []);
+  for (const threadId of threadIds) {
+    void deleteChatImages(threadId).catch(() => {
+      // Clearing text history must not depend on browser image storage.
+    });
+  }
 }

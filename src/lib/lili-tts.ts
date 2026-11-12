@@ -84,6 +84,13 @@ const normLang = (l: string) => l.replace(/_/g, "-").toLowerCase();
  * Best installed voice for a language. Bangla prefers Bangladesh (bn-BD),
  * then India (bn-IN), then any Bengali voice. Returns null when none exists.
  */
+/** Keep English chunks and only Bangla chunks with a real Bengali voice. */
+export function filterSpeakableChunks<T extends { lang: SpeechLang; voice: unknown | null }>(
+  planned: readonly T[],
+): T[] {
+  return planned.filter((chunk) => chunk.lang !== "bn" || chunk.voice !== null);
+}
+
 export function pickVoice<V extends VoiceLike>(voices: readonly V[], lang: SpeechLang): V | null {
   const prefs = lang === "bn" ? ["bn-bd", "bn-in", "bn"] : ["en-us", "en-gb", "en-in", "en"];
   for (const pref of prefs) {
@@ -140,7 +147,7 @@ function loadVoices(): Promise<SpeechSynthesisVoice[]> {
       clearTimeout(timer);
       resolve(synth.getVoices());
     };
-    const timer = setTimeout(done, 1500);
+    const timer = setTimeout(done, 5000);
     synth.addEventListener?.("voiceschanged", done);
   });
 }
@@ -224,16 +231,21 @@ export async function speakReply(id: string, text: string, onNotice: Notify) {
 
   const bnVoice = pickVoice(voices, "bn");
   const enVoice = pickVoice(voices, "en");
-  chunks = splitSpeechChunks(text).map((c) => ({ ...c, voice: c.lang === "bn" ? bnVoice : enVoice }));
+  const plannedChunks = splitSpeechChunks(text).map((c) => ({
+    ...c,
+    voice: c.lang === "bn" ? bnVoice : enVoice,
+  }));
+  const hasBangla = plannedChunks.some((c) => c.lang === "bn");
+  chunks = filterSpeakableChunks(plannedChunks);
+  if (!bnVoice && hasBangla && !banglaWarned) {
+    banglaWarned = true;
+    onNotice(
+      "No Bangla voice is installed, so Bangla parts will be skipped. On Android: Settings → Text-to-speech → Google → install Bengali (Bangladesh). (বাংলা ভয়েস ইনস্টল করুন।)",
+    );
+  }
   if (!chunks.length) {
     setState(IDLE);
     return;
-  }
-  if (!bnVoice && chunks.some((c) => c.lang === "bn") && !banglaWarned) {
-    banglaWarned = true;
-    onNotice(
-      "No Bangla voice found on this device, so Lili will try the default voice. For clear Bangla on Android: Settings → Text-to-speech → Google → install Bengali (Bangladesh).",
-    );
   }
   // Small delay after cancel(): Android Chrome drops a speak() issued immediately after it.
   setTimeout(() => speakChunk(gen), 80);
