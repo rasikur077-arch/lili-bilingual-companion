@@ -35,6 +35,28 @@ describe("Lili chat storage", () => {
     expect(readThreads()[0].title).toBe("Help me write a polite email");
   });
 
+  it("persists image metadata without storing image bytes in local storage", () => {
+    const id = createThreadWithMessage("Look at this");
+    const [thread] = readThreads();
+    saveThreadMessages(id, [
+      ...thread.messages,
+      {
+        id: "msg_image",
+        role: "user",
+        parts: [
+          { type: "text", text: "What is this?" },
+          { type: "file", mediaType: "image/jpeg", filename: "photo.jpg", url: "data:image/jpeg;base64,AAAA" },
+        ],
+      },
+    ]);
+    const saved = readThreads()[0].messages.find((m: { id: string }) => m.id === "msg_image");
+    expect(saved.parts).toEqual([
+      { type: "text", text: "What is this?" },
+      { type: "file", mediaType: "image/jpeg", filename: "photo.jpg" },
+    ]);
+    expect(JSON.stringify(readThreads())).not.toContain("data:image/jpeg");
+  });
+
   it("saves only text parts and never sends legacy notices to the AI", () => {
     const id = createThreadWithMessage("hi");
     const [thread] = readThreads();
