@@ -231,18 +231,21 @@ export async function speakReply(id: string, text: string, onNotice: Notify) {
 
   const bnVoice = pickVoice(voices, "bn");
   const enVoice = pickVoice(voices, "en");
-  chunks = filterSpeakableChunks(
-    splitSpeechChunks(text).map((c) => ({ ...c, voice: c.lang === "bn" ? bnVoice : enVoice })),
-  );
-  if (!chunks.length) {
-    setState(IDLE);
-    return;
-  }
-  if (!bnVoice && chunks.some((c) => c.lang === "bn") && !banglaWarned) {
+  const plannedChunks = splitSpeechChunks(text).map((c) => ({
+    ...c,
+    voice: c.lang === "bn" ? bnVoice : enVoice,
+  }));
+  const hasBangla = plannedChunks.some((c) => c.lang === "bn");
+  chunks = filterSpeakableChunks(plannedChunks);
+  if (!bnVoice && hasBangla && !banglaWarned) {
     banglaWarned = true;
     onNotice(
       "No Bangla voice is installed, so Bangla parts will be skipped. On Android: Settings → Text-to-speech → Google → install Bengali (Bangladesh). (বাংলা ভয়েস ইনস্টল করুন।)",
     );
+  }
+  if (!chunks.length) {
+    setState(IDLE);
+    return;
   }
   // Small delay after cancel(): Android Chrome drops a speak() issued immediately after it.
   setTimeout(() => speakChunk(gen), 80);
