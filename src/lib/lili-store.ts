@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { deleteChatImages } from "@/lib/lili-attachments";
 
 /**
  * Browser-only storage for LILI AI (chat threads + settings).
@@ -199,8 +200,17 @@ export function saveThreadMessages(threadId: string, messages: UIMessageLike[]) 
 
 export function deleteThread(threadId: string) {
   threadStore.set((prev) => prev.filter((t) => t.id !== threadId));
+  void deleteChatImages(threadId).catch(() => {
+    // A thread can still be deleted when IndexedDB is unavailable.
+  });
 }
 
 export function clearAllThreads() {
+  const threadIds = threadStore.read().map((thread) => thread.id);
   threadStore.set(() => []);
+  for (const threadId of threadIds) {
+    void deleteChatImages(threadId).catch(() => {
+      // Clearing text history must not depend on browser image storage.
+    });
+  }
 }
