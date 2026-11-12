@@ -7,7 +7,7 @@ import { Composer } from "@/components/lili/Composer";
 import { LiliAvatar } from "@/components/lili/LiliAvatar";
 import { Button } from "@/components/ui/button";
 import { deleteChatMessageImages, saveChatImage } from "@/lib/lili-attachments";
-import { deleteThread, createThreadWithMessage, newId, useSettings } from "@/lib/lili-store";
+import { createThreadWithMessage, newId, useSettings } from "@/lib/lili-store";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
