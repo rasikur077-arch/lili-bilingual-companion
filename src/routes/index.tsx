@@ -6,7 +6,9 @@ import { AiStatusPill } from "@/components/lili/AppShell";
 import { Composer } from "@/components/lili/Composer";
 import { LiliAvatar } from "@/components/lili/LiliAvatar";
 import { Button } from "@/components/ui/button";
-import { createThreadWithMessage, useSettings } from "@/lib/lili-store";
+import { deleteChatMessageImages, saveChatImage } from "@/lib/lili-attachments";
+import { deleteThread, createThreadWithMessage, newId, useSettings } from "@/lib/lili-store";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -40,8 +42,38 @@ function Home() {
   const settings = useSettings();
   const [listening, setListening] = useState(false);
 
-  const start = (text: string) => {
-    const id = createThreadWithMessage(text);
+  const start = async (text: string, files: File[] = []) => {
+    const threadId = newId("t");
+    const messageId = newId("msg");
+
+    if (files.length > 0) {
+      try {
+        await Promise.all(
+          files.map((file, index) =>
+            saveChatImage({
+              threadId,
+              messageId,
+              index,
+              blob: file,
+              mediaType: file.type,
+              filename: file.name,
+            }),
+          ),
+        );
+      } catch {
+        await deleteChatMessageImages(threadId, messageId).catch(() => undefined);
+        toast.error("ছবি সংরক্ষণ করা যায়নি। লেখাটি ছবি ছাড়া পাঠানো হচ্ছে।");
+        const id = createThreadWithMessage(text);
+        navigate({ to: "/chat/$threadId", params: { threadId: id } });
+        return;
+      }
+    }
+
+    const id = createThreadWithMessage(text, {
+      threadId,
+      messageId,
+      images: files.map((file) => ({ mediaType: file.type, filename: file.name })),
+    });
     navigate({ to: "/chat/$threadId", params: { threadId: id } });
   };
 
@@ -102,7 +134,7 @@ function Home() {
       </main>
 
       <div className="px-3 pb-3">
-        <Composer onSend={start} onListeningChange={setListening} allowImages={false} />
+        <Composer onSend={start} onListeningChange={setListening} />
       </div>
     </>
   );
