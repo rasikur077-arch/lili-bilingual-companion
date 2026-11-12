@@ -88,6 +88,8 @@ export function Composer({
         variant={speech.listening ? "glow" : "ghost"}
         size="icon-lg"
         onClick={toggleMic}
+        disabled={!speech.supported || busy}
+        title={!speech.supported ? "Voice input is not supported in this browser" : undefined}
         aria-label={speech.listening ? "Stop voice input" : "Start voice input"}
         aria-pressed={speech.listening}
         className={cn("relative shrink-0", !speech.listening && "text-muted-foreground")}
