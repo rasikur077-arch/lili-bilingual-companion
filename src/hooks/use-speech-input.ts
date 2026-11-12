@@ -59,8 +59,11 @@ export function useSpeechInput({ lang, onTranscript, onError }: Options) {
     rec.lang = lang;
     rec.interimResults = true;
     rec.continuous = false;
-    rec.onstart = () => setListening(true);
+    rec.onstart = () => {
+      if (recRef.current === rec) setListening(true);
+    };
     rec.onresult = (e) => {
+      if (recRef.current !== rec) return;
       // The browser includes prior final results plus the latest interim result.
       // Rebuild the complete transcript on every event to avoid duplicated words.
       let text = "";
@@ -70,7 +73,7 @@ export function useSpeechInput({ lang, onTranscript, onError }: Options) {
       cbRef.current.onTranscript(text.trim());
     };
     rec.onerror = (e) => {
-      if (e.error === "aborted") return;
+      if (recRef.current !== rec || e.error === "aborted") return;
       const messages: Record<string, string> = {
         "not-allowed": "Microphone permission was blocked. Allow it in your browser settings. (মাইক্রোফোন ব্যবহারের অনুমতি দিন।)",
         "no-speech": "No speech detected. Please try speaking a little closer to the microphone. (কোনো কথা শোনা যায়নি, আবার চেষ্টা করুন।)",
