@@ -35,6 +35,43 @@ describe("Lili chat storage", () => {
     expect(readThreads()[0].title).toBe("Help me write a polite email");
   });
 
+  it("persists image metadata without storing image bytes in local storage", () => {
+    const id = createThreadWithMessage("Look at this");
+    const [thread] = readThreads();
+    saveThreadMessages(id, [
+      ...thread.messages,
+      {
+        id: "msg_image",
+        role: "user",
+        parts: [
+          { type: "text", text: "What is this?" },
+          { type: "file", mediaType: "image/jpeg", filename: "photo.jpg", url: "data:image/jpeg;base64,AAAA" },
+        ],
+      },
+    ]);
+    const saved = readThreads()[0].messages.find((m: { id: string }) => m.id === "msg_image");
+    expect(saved.parts).toEqual([
+      { type: "text", text: "What is this?" },
+      { type: "file", mediaType: "image/jpeg", filename: "photo.jpg" },
+    ]);
+    expect(JSON.stringify(readThreads())).not.toContain("data:image/jpeg");
+  });
+
+  it("keeps image-only messages in chat history", () => {
+    const id = createThreadWithMessage("start");
+    const [thread] = readThreads();
+    saveThreadMessages(id, [
+      ...thread.messages,
+      {
+        id: "msg_only_image",
+        role: "user",
+        parts: [{ type: "file", mediaType: "image/png", filename: "only.png", url: "data:image/png;base64,AAAA" }],
+      },
+    ]);
+    const saved = readThreads()[0].messages.find((m: { id: string }) => m.id === "msg_only_image");
+    expect(saved.parts).toEqual([{ type: "file", mediaType: "image/png", filename: "only.png" }]);
+    expect(toChatUIMessages([saved])).toEqual([{ id: "msg_only_image", role: "user", parts: [] }]);
+  });
   it("saves only text parts and never sends legacy notices to the AI", () => {
     const id = createThreadWithMessage("hi");
     const [thread] = readThreads();

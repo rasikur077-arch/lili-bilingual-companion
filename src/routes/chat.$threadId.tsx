@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link, useHydrated } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
+import { toast } from "sonner";
 import { DefaultChatTransport } from "ai";
 import { ChevronLeft, MessageSquarePlus } from "lucide-react";
 
@@ -21,9 +22,11 @@ import {
   useSettings,
   useThreads,
   type Thread,
+  newId,
 } from "@/lib/lili-store";
+import { getChatImages, imageBlobToDataUrl, saveChatImage } from "@/lib/lili-attachments";
 import { getLiliMemories } from "@/lib/lili-memory";
-import { stopSpeaking, warmUpVoices } from "@/lib/lili-tts";
+import { speakReply, stopSpeaking, warmUpVoices } from "@/lib/lili-tts";
 
 export const Route = createFileRoute("/chat/$threadId")({
   head: () => ({
@@ -77,6 +80,39 @@ function partsText(parts: Array<{ type: string; text?: string }>) {
 }
 
 function ChatWindow({ thread }: { thread: Thread }) {
+  const [initialMessages, setInitialMessages] = useState<ReturnType<typeof toChatUIMessages> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function restoreImages() {
+      const restored = await Promise.all(
+        toChatUIMessages(thread.messages).map(async (message) => {
+          const images = await getChatImages(thread.id, message.id).catch(() => []);
+          const fileParts = await Promise.all(images.map(async (image) => ({
+            type: "file" as const,
+            mediaType: image.mediaType,
+            filename: image.filename,
+            url: await imageBlobToDataUrl(image.blob),
+          })));
+          return { ...message, parts: [...message.parts, ...fileParts] };
+        }),
+      );
+      if (!cancelled) setInitialMessages(restored as ReturnType<typeof toChatUIMessages>);
+    }
+    void restoreImages().catch(() => {
+      if (!cancelled) setInitialMessages(toChatUIMessages(thread.messages));
+    });
+    return () => { cancelled = true; };
+  }, [thread.id, thread.messages]);
+
+  if (!initialMessages) return <div className="flex-1" role="status" aria-label="Restoring conversation" />;
+  return <ChatRuntime thread={thread} initialMessages={initialMessages} />;
+}
+
+function ChatRuntime({ thread, initialMessages }: {
+  thread: Thread;
+  initialMessages: ReturnType<typeof toChatUIMessages>;
+}) {
   const settings = useSettings();
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -102,11 +138,26 @@ function ChatWindow({ thread }: { thread: Thread }) {
 
   const { messages, sendMessage, regenerate, status, error, stop, clearError } = useChat({
     id: thread.id,
-    messages: toChatUIMessages(thread.messages),
+    messages: initialMessages,
     transport,
   });
 
   const busy = status === "submitted" || status === "streaming";
+  const wasBusy = useRef(false);
+
+  // Optional hands-free replies: speak only after a new assistant turn finishes.
+  useEffect(() => {
+    if (busy) {
+      wasBusy.current = true;
+      return;
+    }
+    if (!wasBusy.current) return;
+    wasBusy.current = false;
+    const latest = messages.at(-1);
+    if (!settings.autoReadReplies || latest?.role !== "assistant") return;
+    const reply = partsText(latest.parts).trim();
+    if (reply) void speakReply(latest.id, reply, (message) => toast(message));
+  }, [busy, messages, settings.autoReadReplies]);
 
   // Read-aloud: load voices early; stop speaking when leaving this conversation.
   useEffect(() => {
@@ -180,13 +231,21 @@ function ChatWindow({ thread }: { thread: Thread }) {
             if (m.role !== "user" && m.role !== "assistant") return null;
             const text = partsText(m.parts);
             const isStreamingThis = status === "streaming" && i === messages.length - 1;
+            const images = m.parts
+              .filter((part) => part.type === "file" && "url" in part && typeof part.url === "string")
+              .map((part) => ({
+                url: part.url as string,
+                filename: "filename" in part && typeof part.filename === "string" ? part.filename : "Attached image",
+              }));
             if (m.role === "assistant" && !text.trim()) return null;
+            if (m.role === "user" && !text.trim() && images.length === 0) return null;
             return (
               <MessageBubble
                 key={m.id}
                 id={m.role === "assistant" ? m.id : undefined}
                 role={m.role}
                 text={text}
+                images={images}
                 streaming={isStreamingThis}
                 time={settings.showTimestamps ? (createdAt.get(m.id) ?? Date.now()) : undefined}
               />
@@ -208,9 +267,24 @@ function ChatWindow({ thread }: { thread: Thread }) {
         <Composer
           busy={busy}
           onStop={() => void stop()}
-          onSend={(text) => {
+          onSend={(text, files) => {
             clearError();
-            void sendMessage({ text });
+            const messageId = newId("msg");
+            void (async () => {
+              try {
+                await Promise.all(files.map((file, index) => saveChatImage({
+                  threadId: thread.id,
+                  messageId,
+                  index,
+                  blob: file,
+                  mediaType: file.type,
+                  filename: file.name,
+                })));
+              } catch {
+                toast.error("ছবিটি এই ডিভাইসে সংরক্ষণ করা যায়নি; chat বন্ধ করলে এটি হারিয়ে যেতে পারে।");
+              }
+              await sendMessage({ text, files, messageId });
+            })();
           }}
         />
       </div>

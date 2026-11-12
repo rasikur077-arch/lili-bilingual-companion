@@ -13,6 +13,7 @@ export function MessageBubble({
   text,
   time,
   streaming = false,
+  images = [],
 }: {
   /** Message id; enables read-aloud controls on Lili's replies. */
   id?: string | undefined;
@@ -20,15 +21,29 @@ export function MessageBubble({
   text: string;
   time?: number | undefined;
   streaming?: boolean;
+  images?: Array<{ url: string; filename: string }>;
 }) {
   const stamp = time ? format(time, "h:mm a") : null;
 
   if (role === "user") {
     return (
       <Message from="user" className="max-w-full items-end gap-1 animate-message-in">
-        <MessageContent className="max-w-[82%] whitespace-pre-wrap break-words rounded-3xl rounded-br-md bg-gradient-primary px-4 py-3 text-[15px] leading-6 text-primary-foreground shadow-glow group-[.is-user]:rounded-3xl group-[.is-user]:rounded-br-md group-[.is-user]:bg-gradient-primary group-[.is-user]:text-primary-foreground">
-          {text}
-        </MessageContent>
+        <div className="flex max-w-[82%] flex-col items-end gap-2">
+          {images.length > 0 && (
+            <div className="flex flex-wrap justify-end gap-2">
+              {images.map((image, index) => (
+                <a key={`${image.filename}-${index}`} href={image.url} target="_blank" rel="noreferrer" aria-label={`Open ${image.filename}`}>
+                  <img src={image.url} alt={image.filename} className="max-h-52 max-w-full rounded-2xl border border-white/20 object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
+          {text && (
+            <MessageContent className="max-w-full whitespace-pre-wrap break-words rounded-3xl rounded-br-md bg-gradient-primary px-4 py-3 text-[15px] leading-6 text-primary-foreground shadow-glow group-[.is-user]:rounded-3xl group-[.is-user]:rounded-br-md group-[.is-user]:bg-gradient-primary group-[.is-user]:text-primary-foreground">
+              {text}
+            </MessageContent>
+          )}
+        </div>
         {stamp && <span className="pr-2 text-[11px] text-muted-foreground">{stamp}</span>}
       </Message>
     );
