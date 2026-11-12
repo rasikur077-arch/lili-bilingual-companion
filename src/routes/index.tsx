@@ -102,7 +102,7 @@ function Home() {
       </main>
 
       <div className="px-3 pb-3">
-        <Composer onSend={start} onListeningChange={setListening} />
+        <Composer onSend={start} onListeningChange={setListening} allowImages={false} />
       </div>
     </>
   );
