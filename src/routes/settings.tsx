@@ -138,7 +138,7 @@ function SettingsPage() {
               </Field>
             </Section>
 
-            <Section icon={Mic} title="Voice input">
+            <Section icon={Mic} title="Voice">
               <Field label="I'll speak in">
                 <Segmented<Settings["voiceLang"]>
                   value={s.voiceLang}
@@ -149,8 +149,14 @@ function SettingsPage() {
                   ]}
                 />
               </Field>
+              <ToggleRow
+                label="Automatically read Lili's replies"
+                hint="Lili will speak after each reply. বাংলা ভয়েস ডিভাইসে ইনস্টল থাকতে হবে।"
+                checked={s.autoReadReplies}
+                onChange={(autoReadReplies) => updateSettings({ autoReadReplies })}
+              />
               <p className="text-xs text-muted-foreground">
-                Uses your browser's speech recognition. Works best in Chrome on Android.
+                Voice input uses your browser's speech recognition. Read-aloud uses the device's built-in text-to-speech. Works best in Chrome on Android.
               </p>
             </Section>
 
