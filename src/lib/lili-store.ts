@@ -8,12 +8,13 @@ import { deleteChatImages } from "@/lib/lili-attachments";
  */
 
 export type TextPart = { type: "text"; text: string };
+export type ImagePart = { type: "file"; mediaType: string; filename?: string };
 export type ChatRole = "user" | "assistant" | "notice";
 
 export type ChatMessage = {
   id: string;
   role: ChatRole;
-  parts: TextPart[];
+  parts: Array<TextPart | ImagePart>;
   createdAt: number;
 };
 
@@ -133,7 +134,7 @@ export function textMessage(role: ChatRole, text: string): ChatMessage {
 }
 
 export function messageText(m: ChatMessage) {
-  return m.parts.map((p) => p.text).join("");
+  return m.parts.filter((p): p is TextPart => p.type === "text").map((p) => p.text).join("");
 }
 
 function makeTitle(text: string) {
@@ -164,7 +165,7 @@ export function markThreadStarted(threadId: string) {
   threadStore.set((prev) => prev.map((t) => (t.id === threadId ? { ...t, pending: false } : t)));
 }
 
-type UIMessageLike = { id: string; role: string; parts: Array<{ type: string; text?: string }> };
+type UIMessageLike = { id: string; role: string; parts: Array<{ type: string; text?: string; mediaType?: string; filename?: string }> };
 
 /** Messages for the AI chat: legacy notices dropped, roles limited to user/assistant. */
 export function toChatUIMessages(messages: ChatMessage[]) {
@@ -183,12 +184,16 @@ export function saveThreadMessages(threadId: string, messages: UIMessageLike[]) 
     .map((m) => ({
       id: m.id,
       role: m.role as ChatRole,
-      parts: m.parts
-        .filter((p) => p.type === "text" && typeof p.text === "string")
-        .map((p) => ({ type: "text" as const, text: p.text as string })),
+      parts: m.parts.flatMap((p) => {
+        if (p.type === "text" && typeof p.text === "string") return [{ type: "text" as const, text: p.text }];
+        if (p.type === "file" && typeof p.mediaType === "string" && p.mediaType.startsWith("image/")) {
+          return [{ type: "file" as const, mediaType: p.mediaType, ...(typeof p.filename === "string" ? { filename: p.filename } : {}) }];
+        }
+        return [];
+      }),
       createdAt: createdById.get(m.id) ?? Date.now(),
     }))
-    .filter((m) => m.parts.length > 0 && messageText(m).length > 0);
+    .filter((m) => m.parts.length > 0 && (messageText(m).length > 0 || m.parts.some((p) => p.type === "file")));
 
   const sig = (list: ChatMessage[]) => JSON.stringify(list.map((m) => [m.id, m.role, m.parts]));
   if (sig(next) === sig(thread.messages)) return;
