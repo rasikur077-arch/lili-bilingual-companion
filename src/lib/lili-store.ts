@@ -37,6 +37,7 @@ export type Settings = {
   replyLanguage: ReplyLanguage;
   replyLength: ReplyLength;
   voiceLang: VoiceLang;
+  autoReadReplies: boolean;
   sendOnEnter: boolean;
   showTimestamps: boolean;
 };
@@ -47,6 +48,7 @@ export const DEFAULT_SETTINGS: Settings = {
   replyLanguage: "bn",
   replyLength: "balanced",
   voiceLang: "bn-BD",
+  autoReadReplies: false,
   sendOnEnter: true,
   showTimestamps: true,
 };
