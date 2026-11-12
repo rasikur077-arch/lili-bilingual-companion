@@ -15,6 +15,7 @@ type Props = {
   placeholder?: string;
   busy?: boolean;
   onStop?: () => void;
+  allowImages?: boolean;
 };
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -27,6 +28,7 @@ export function Composer({
   placeholder,
   busy = false,
   onStop,
+  allowImages = true,
 }: Props) {
   const settings = useSettings();
   const [value, setValue] = useState("");
@@ -114,7 +116,7 @@ export function Composer({
       }}
       className="glass flex flex-col gap-2 rounded-[1.75rem] p-2 shadow-soft"
     >
-      {images.length > 0 && (
+      {allowImages && images.length > 0 && (
         <div className="flex flex-wrap gap-2 px-1 pt-1" aria-label="Selected images">
           {images.map((file, index) => (
             <div key={`${file.name}-${file.lastModified}-${index}`} className="relative">
@@ -139,7 +141,7 @@ export function Composer({
       )}
 
       <div className="flex items-end gap-2">
-        <input
+        {allowImages && <input
           ref={fileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
@@ -150,8 +152,8 @@ export function Composer({
             chooseImages(Array.from(event.currentTarget.files ?? []));
             event.currentTarget.value = "";
           }}
-        />
-        <Button
+        />}
+        {allowImages && <Button
           type="button"
           variant="ghost"
           size="icon-lg"
@@ -162,7 +164,7 @@ export function Composer({
           title="ছবি যুক্ত করুন"
         >
           <ImagePlus className="!size-5" />
-        </Button>
+        </Button>}
 
         <Button
           type="button"
