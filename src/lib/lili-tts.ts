@@ -161,6 +161,9 @@ function cancelSynth() {
 
 function speakChunk(gen: number) {
   if (gen !== generation) return;
+  // Never send Bangla text to an unrelated default English voice: skip it
+  // until the device has a Bengali voice installed.
+  while (chunks[index]?.lang === "bn" && !chunks[index]?.voice) index += 1;
   const chunk = chunks[index];
   if (!chunk) {
     current = null;
@@ -232,7 +235,7 @@ export async function speakReply(id: string, text: string, onNotice: Notify) {
   if (!bnVoice && chunks.some((c) => c.lang === "bn") && !banglaWarned) {
     banglaWarned = true;
     onNotice(
-      "No Bangla voice found on this device, so Lili will try the default voice. For clear Bangla on Android: Settings → Text-to-speech → Google → install Bengali (Bangladesh).",
+      "No Bangla voice is installed, so Bangla parts will be skipped. On Android: Settings → Text-to-speech → Google → install Bengali (Bangladesh). (বাংলা ভয়েস ইনস্টল করুন।)",
     );
   }
   // Small delay after cancel(): Android Chrome drops a speak() issued immediately after it.
