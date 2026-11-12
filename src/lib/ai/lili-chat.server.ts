@@ -123,7 +123,9 @@ export async function handleLiliChat(request: Request): Promise<Response> {
   }
 
   const uiMessages = parsed.messages.slice(-MAX_HISTORY) as unknown as UIMessage[];
-  const imageValidation = validateImageParts(uiMessages);\n  if (imageValidation) return textError(imageValidation, 413);\n\n  const textLengths = uiMessages.map((message) =>
+  const imageValidation = validateImageParts(uiMessages);
+  if (imageValidation) return textError(imageValidation, 413);
+
     message.parts.reduce(
       (total, part) => total + (part.type === "text" && typeof part.text === "string" ? part.text.length : 0),
       0,
