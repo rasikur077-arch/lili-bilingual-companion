@@ -84,6 +84,13 @@ const normLang = (l: string) => l.replace(/_/g, "-").toLowerCase();
  * Best installed voice for a language. Bangla prefers Bangladesh (bn-BD),
  * then India (bn-IN), then any Bengali voice. Returns null when none exists.
  */
+/** Keep English chunks and only Bangla chunks with a real Bengali voice. */
+export function filterSpeakableChunks<T extends { lang: SpeechLang; voice: unknown | null }>(
+  planned: readonly T[],
+): T[] {
+  return planned.filter((chunk) => chunk.lang !== "bn" || chunk.voice !== null);
+}
+
 export function pickVoice<V extends VoiceLike>(voices: readonly V[], lang: SpeechLang): V | null {
   const prefs = lang === "bn" ? ["bn-bd", "bn-in", "bn"] : ["en-us", "en-gb", "en-in", "en"];
   for (const pref of prefs) {
@@ -161,9 +168,6 @@ function cancelSynth() {
 
 function speakChunk(gen: number) {
   if (gen !== generation) return;
-  // Never send Bangla text to an unrelated default English voice: skip it
-  // until the device has a Bengali voice installed.
-  while (chunks[index]?.lang === "bn" && !chunks[index]?.voice) index += 1;
   const chunk = chunks[index];
   if (!chunk) {
     current = null;
@@ -227,7 +231,9 @@ export async function speakReply(id: string, text: string, onNotice: Notify) {
 
   const bnVoice = pickVoice(voices, "bn");
   const enVoice = pickVoice(voices, "en");
-  chunks = splitSpeechChunks(text).map((c) => ({ ...c, voice: c.lang === "bn" ? bnVoice : enVoice }));
+  chunks = filterSpeakableChunks(
+    splitSpeechChunks(text).map((c) => ({ ...c, voice: c.lang === "bn" ? bnVoice : enVoice })),
+  );
   if (!chunks.length) {
     setState(IDLE);
     return;
