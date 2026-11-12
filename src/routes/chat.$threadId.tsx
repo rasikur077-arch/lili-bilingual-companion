@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link, useHydrated } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
+import { toast } from "sonner";
 import { DefaultChatTransport } from "ai";
 import { ChevronLeft, MessageSquarePlus } from "lucide-react";
 
@@ -23,7 +24,7 @@ import {
   type Thread,
 } from "@/lib/lili-store";
 import { getLiliMemories } from "@/lib/lili-memory";
-import { stopSpeaking, warmUpVoices } from "@/lib/lili-tts";
+import { speakReply, stopSpeaking, warmUpVoices } from "@/lib/lili-tts";
 
 export const Route = createFileRoute("/chat/$threadId")({
   head: () => ({
@@ -107,6 +108,21 @@ function ChatWindow({ thread }: { thread: Thread }) {
   });
 
   const busy = status === "submitted" || status === "streaming";
+  const wasBusy = useRef(false);
+
+  // Optional hands-free replies: speak only after a new assistant turn finishes.
+  useEffect(() => {
+    if (busy) {
+      wasBusy.current = true;
+      return;
+    }
+    if (!wasBusy.current) return;
+    wasBusy.current = false;
+    const latest = messages.at(-1);
+    if (!settings.autoReadReplies || latest?.role !== "assistant") return;
+    const reply = partsText(latest.parts).trim();
+    if (reply) void speakReply(latest.id, reply, (message) => toast(message));
+  }, [busy, messages, settings.autoReadReplies]);
 
   // Read-aloud: load voices early; stop speaking when leaving this conversation.
   useEffect(() => {
