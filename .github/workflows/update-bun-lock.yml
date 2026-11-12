@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - codex/cloudflare-workers-ai
-    paths:
-      - package.json
 
 permissions:
   contents: write
