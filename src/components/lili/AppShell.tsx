@@ -89,7 +89,7 @@ export function AiStatusPill() {
         <span className="absolute inset-0 rounded-full bg-cyan animate-pulse-ring" />
         <span className="relative size-1.5 rounded-full bg-cyan" />
       </span>
-      Lili is online
+Lili · zero-cost mode
     </span>
   );
 }
