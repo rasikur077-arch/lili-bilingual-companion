@@ -171,7 +171,13 @@ type UIMessageLike = { id: string; role: string; parts: Array<{ type: string; te
 export function toChatUIMessages(messages: ChatMessage[]) {
   return messages
     .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => ({ id: m.id, role: m.role as "user" | "assistant", parts: m.parts }));
+    .map((m) => ({
+      id: m.id,
+      role: m.role as "user" | "assistant",
+      // Binary files are rehydrated from IndexedDB by the chat view; never
+      // send metadata-only file parts to the AI SDK as if they had URLs.
+      parts: m.parts.filter((part): part is TextPart => part.type === "text"),
+    }));
 }
 
 /** Persists the chat's messages (text parts only). No-op when nothing changed. */
