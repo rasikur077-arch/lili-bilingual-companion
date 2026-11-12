@@ -22,7 +22,9 @@ import {
   useSettings,
   useThreads,
   type Thread,
+  newId,
 } from "@/lib/lili-store";
+import { saveChatImage } from "@/lib/lili-attachments";
 import { getLiliMemories } from "@/lib/lili-memory";
 import { speakReply, stopSpeaking, warmUpVoices } from "@/lib/lili-tts";
 
@@ -196,13 +198,21 @@ function ChatWindow({ thread }: { thread: Thread }) {
             if (m.role !== "user" && m.role !== "assistant") return null;
             const text = partsText(m.parts);
             const isStreamingThis = status === "streaming" && i === messages.length - 1;
+            const images = m.parts
+              .filter((part) => part.type === "file" && "url" in part && typeof part.url === "string")
+              .map((part) => ({
+                url: part.url as string,
+                filename: "filename" in part && typeof part.filename === "string" ? part.filename : "Attached image",
+              }));
             if (m.role === "assistant" && !text.trim()) return null;
+            if (m.role === "user" && !text.trim() && images.length === 0) return null;
             return (
               <MessageBubble
                 key={m.id}
                 id={m.role === "assistant" ? m.id : undefined}
                 role={m.role}
                 text={text}
+                images={images}
                 streaming={isStreamingThis}
                 time={settings.showTimestamps ? (createdAt.get(m.id) ?? Date.now()) : undefined}
               />
@@ -224,9 +234,18 @@ function ChatWindow({ thread }: { thread: Thread }) {
         <Composer
           busy={busy}
           onStop={() => void stop()}
-          onSend={(text) => {
+          onSend={(text, files) => {
             clearError();
-            void sendMessage({ text });
+            const messageId = newId("msg");
+            void Promise.all(files.map((file, index) => saveChatImage({
+              threadId: thread.id,
+              messageId,
+              index,
+              blob: file,
+              mediaType: file.type,
+              filename: file.name,
+            }))).catch(() => toast.error("ছবিটি এই ডিভাইসে সংরক্ষণ করা যায়নি; chat বন্ধ করলে এটি হারিয়ে যেতে পারে।"));
+            void sendMessage({ text, files, messageId });
           }}
         />
       </div>
