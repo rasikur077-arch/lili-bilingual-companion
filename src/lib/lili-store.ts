@@ -146,15 +146,35 @@ function makeTitle(text: string) {
  * Creates a thread holding the first user message, flagged `pending` so the
  * chat page sends it to Lili exactly once. Returns the thread id.
  */
-export function createThreadWithMessage(text: string): string {
+export function createThreadWithMessage(
+  text: string,
+  options: {
+    threadId?: string;
+    messageId?: string;
+    images?: Array<{ mediaType: string; filename?: string }>;
+  } = {},
+): string {
   const now = Date.now();
+  const firstMessage: ChatMessage = {
+    id: options.messageId ?? newId("msg"),
+    role: "user",
+    parts: [
+      ...(text ? [{ type: "text" as const, text }] : []),
+      ...(options.images ?? []).map((image) => ({
+        type: "file" as const,
+        mediaType: image.mediaType,
+        ...(image.filename ? { filename: image.filename } : {}),
+      })),
+    ],
+    createdAt: now,
+  };
   const thread: Thread = {
-    id: newId("t"),
-    title: makeTitle(text),
+    id: options.threadId ?? newId("t"),
+    title: makeTitle(text || "Image message"),
     createdAt: now,
     updatedAt: now,
     pending: true,
-    messages: [textMessage("user", text)],
+    messages: [firstMessage],
   };
   threadStore.set((prev) => [thread, ...prev]);
   return thread.id;
