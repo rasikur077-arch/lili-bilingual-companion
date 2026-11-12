@@ -1,4 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import { createAI } from "agents/models/ai-sdk";
 import { APICallError, convertToModelMessages, streamText, type UIMessage } from "ai";
 import { z } from "zod";
 
@@ -93,7 +94,10 @@ export function friendlyAiError(error: unknown): string {
   }
 }
 
-export async function handleLiliChat(request: Request): Promise<Response> {
+export async function handleLiliChat(request: Request, workerEnv?: { AI?: unknown }): Promise<Response> {
+  const cloudflareModel = workerEnv?.AI
+    ? createAI({ binding: workerEnv.AI as Parameters<typeof createAI>[0]["binding"] })("@cf/zai-org/glm-4.7-flash")
+    : null;
   const configuredBaseURL = process.env["LILI_AI_BASE_URL"]?.trim();
   const useLegacyGateway = process.env["LILI_AI_USE_LEGACY_GATEWAY"] === "true";
   const baseURL = configuredBaseURL || (useLegacyGateway ? LEGACY_GATEWAY_URL : "");
@@ -107,10 +111,10 @@ export async function handleLiliChat(request: Request): Promise<Response> {
 
   // Local OpenAI-compatible servers (for example, Ollama or LM Studio) can use
   // a placeholder key. Remote providers must supply their key on the server.
-  if (!baseURL) {
+  if (!cloudflareModel && !baseURL) {
     return textError("Lili is in zero-cost mode, but no local AI engine is connected yet.", 503);
   }
-  if (!apiKey && !isLocalEndpoint) {
+  if (!cloudflareModel && !apiKey && !isLocalEndpoint) {
     console.error("[lili-chat] No API key configured for the selected AI provider");
     return textError("The selected remote AI provider needs a server-side key. No paid provider will be started automatically.", 503);
   }
@@ -157,7 +161,7 @@ export async function handleLiliChat(request: Request): Promise<Response> {
   const runIdFetch = isLovableGateway
     ? createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(request))
     : undefined;
-  const provider = createOpenAI({
+  const provider = cloudflareModel ? null : createOpenAI({
     baseURL,
     apiKey: apiKey || "local-development",
     ...(isLovableGateway
@@ -169,7 +173,7 @@ export async function handleLiliChat(request: Request): Promise<Response> {
   });
 
   const result = streamText({
-    model: isLovableGateway ? provider.responses(modelName) : provider.chat(modelName),
+    model: cloudflareModel ?? (isLovableGateway ? provider!.responses(modelName) : provider!.chat(modelName)),
     instructions: buildLiliInstructions(settings, memories),
     messages: modelMessages,
     abortSignal: request.signal,
