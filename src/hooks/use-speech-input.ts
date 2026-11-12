@@ -80,6 +80,9 @@ export function useSpeechInput({ lang, onTranscript, onError }: Options) {
       cbRef.current.onError?.(messages[e.error] ?? `Voice input error: ${e.error}`);
     };
     rec.onend = () => {
+      // An older recognition instance may finish after a new one has started.
+      // Only let the active instance update the shared listening state.
+      if (recRef.current !== rec) return;
       setListening(false);
       recRef.current = null;
     };
@@ -87,6 +90,7 @@ export function useSpeechInput({ lang, onTranscript, onError }: Options) {
     try {
       rec.start();
     } catch {
+      if (recRef.current === rec) recRef.current = null;
       setListening(false);
       cbRef.current.onError?.("Could not start the microphone. Please try again. (মাইক্রোফোন চালু করা যায়নি।)");
     }
